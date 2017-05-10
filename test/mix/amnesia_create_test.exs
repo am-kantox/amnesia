@@ -50,6 +50,14 @@ defdatabase DiscOnly.Database do
   end
 end
 
+
+defmodule M, do: defmacro table, do: Message
+defdatabase DynamicTableNames.Database do
+  require M
+  deftable M.table, [:user_id, :content], type: :bag do
+  end
+end
+
 defmodule Mix.Tasks.Amnesia.Create.Test do
   use ExUnit.Case
   use Create.Database
@@ -114,4 +122,13 @@ defmodule Mix.Tasks.Amnesia.Create.Test do
     assert Amnesia.Table.info(DiscOnly.Database.Message, :disc_only_copies) == [node()]
   end
 
+  test "creates database with dynamic table names" do
+    Create.run(["--database", "DynamicTableNames.Database"])
+
+    Amnesia.start
+    tables = Amnesia.info(:tables)
+    assert :schema in tables
+    assert DynamicTableNames.Database.Message in tables
+    assert DynamicTableNames.Database in tables
+  end
 end

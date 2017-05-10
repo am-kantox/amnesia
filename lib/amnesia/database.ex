@@ -170,14 +170,25 @@ defmodule Amnesia.Database do
   @spec deftable(atom, [atom | { atom, any }], Keyword.t) :: none
   @spec deftable(atom, [atom | { atom, any }], Keyword.t, Keyword.t) :: none
   defmacro deftable(name, attributes \\ nil, opts \\ [], do_block \\ []) do
+    expanded_name = case name do
+      {t, meta, _} when is_tuple(t) ->
+        atom = name
+               |> Macro.expand(__CALLER__)
+               |> Atom.to_string
+               |> String.trim_leading("Elixir.")
+               |> String.to_atom
+        {:__aliases__, Keyword.merge([counter: 0], meta), [atom]}
+      _ -> name
+    end
+
     if attributes do
-      [ Amnesia.Table.Definition.define(__CALLER__.module, name, attributes, Keyword.merge(opts, do_block)),
+      [ Amnesia.Table.Definition.define(__CALLER__.module, expanded_name, attributes, Keyword.merge(opts, do_block)),
 
         # add the defined table to the list
-        quote do: @tables unquote(name) ]
+        quote do: @tables unquote(expanded_name) ]
     else
       quote do
-        alias __MODULE__.unquote(name)
+        alias __MODULE__.unquote(expanded_name)
       end
     end
   end
