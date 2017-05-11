@@ -7,6 +7,14 @@
 #  0. You just DO WHAT THE FUCK YOU WANT TO.
 
 defmodule Amnesia.Helper do
+  defmodule Producer do
+    defmacro macros_for_module(bindings) do
+      Enum.map(bindings, fn {attr, val} ->
+        quote do: defmacro unquote(attr)(), do: unquote(val)
+      end)
+    end
+  end
+
   defmodule Options do
     @doc """
     Allows use of pipe operator to chain conditional updates

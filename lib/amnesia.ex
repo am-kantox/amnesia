@@ -10,7 +10,7 @@ defmodule Amnesia do
   @doc false
   defmacro __using__(_opts) do
     quote do
-      import  Amnesia, only: [defdatabase: 2]
+      import  Amnesia, only: [defdatabase: 2, defdatabase: 3]
       require Amnesia
       require Amnesia.Fragment
       require Amnesia.Helper
@@ -305,5 +305,9 @@ defmodule Amnesia do
   """
   defmacro defdatabase(name, do: block) do
     Amnesia.Database.defdatabase!(name, do: block)
+  end
+
+  defmacro defdatabase(name, bind_quoted, do: block) do
+    Amnesia.Database.defdatabase!(name, bind_quoted: bind_quoted, do: block)
   end
 end

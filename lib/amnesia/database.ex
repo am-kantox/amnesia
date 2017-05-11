@@ -20,11 +20,35 @@ defmodule Amnesia.Database do
 
   @doc false
   def defdatabase!(name, do: block) do
+    defdatabase!(name, bind_quoted: [], do: block)
+  end
+  def defdatabase!(name, bind_quoted: bind_quoted, do: block) do
+    binding_module_quoted =  with {:__aliases__, line, names} <- name do
+                               {:__aliases__, line, names ++ [:Bindings]}
+                             end
     quote do
+      binding_module = unquote(binding_module_quoted)
+      IO.inspect(binding_module, label: "★1")
+
+      # unless [] == unquote(bind_quoted) do
+        defmodule binding_module do
+          require Amnesia.Helper.Producer, as: P
+          P.macros_for_module(unquote(bind_quoted))
+        end
+      # end
+
       defmodule unquote(name) do
         use   Amnesia.Database
         alias Amnesia.Metadata
 
+        IO.inspect(unquote(binding_module_quoted), label: "★2")
+        # Code.eval_string("require #{binding_module}\n alias #{binding_module}")
+        require unquote(binding_module_quoted), as: Bindings
+        # IO.inspect "#{Bindings.user_table()}", label: "★☆★"
+
+        bindings = unquote(bind_quoted)
+        IO.inspect(Bindings.__info__(:macros), label: "★2")
+        # alias #{Module.concat(unquote(name), "Bindings")}, as: Bindings
         unquote(block)
 
         @doc """
@@ -127,6 +151,10 @@ defmodule Amnesia.Database do
         end
       end
     end
+  end
+
+  defmacro expand(term) do
+    Macro.expand(term, __CALLER__)
   end
 
   @doc """

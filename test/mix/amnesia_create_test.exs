@@ -52,9 +52,11 @@ end
 
 
 defmodule M, do: defmacro table, do: Message
-defdatabase DynamicTableNames.Database do
+defdatabase DynamicTableNames.Database, [user_table: User] do
   require M
   deftable M.table, [:user_id, :content], type: :bag do
+  end
+  deftable Bindings.user_table, [{ :id, autoincrement }, :name, :email], type: :ordered_set, index: [:email] do
   end
 end
 
@@ -129,6 +131,7 @@ defmodule Mix.Tasks.Amnesia.Create.Test do
     tables = Amnesia.info(:tables)
     assert :schema in tables
     assert DynamicTableNames.Database.Message in tables
+    assert DynamicTableNames.Database.User in tables
     assert DynamicTableNames.Database in tables
   end
 end
