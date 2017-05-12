@@ -52,12 +52,20 @@ end
 
 
 defmodule M, do: defmacro table, do: Message
-defdatabase DynamicTableNames.Database, [user_table: User] do
-  require M
-  deftable M.table, [:user_id, :content], type: :bag do
-  end
-  deftable Bindings.user_table, [{ :id, autoincrement }, :name, :email], type: :ordered_set, index: [:email] do
-  end
+tables = ~w|table|a
+defdatabase DynamicTableNames.Database, bindings: [user_table: User] do
+  tables = [[name: Message, attributes: [:user_id, :content], opts: [type: :bag]]]
+  deftables tables
+
+  # IO.inspect @user_table, label: "@"
+
+  # # deftable Bindings.user_table, [{ :id, autoincrement }, :name, :email], type: :ordered_set, index: [:email] do
+  # # end
+
+  # Bindings.bindings
+  # |> Enum.each(fn {k, v} ->
+  #   deftable(v, [{ :id, autoincrement }, :name, :email], type: :ordered_set, binding: k, index: [:email], do: nil)
+  # end)
 end
 
 defmodule Mix.Tasks.Amnesia.Create.Test do

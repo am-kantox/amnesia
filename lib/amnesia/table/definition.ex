@@ -80,7 +80,11 @@ defmodule Amnesia.Table.Definition do
     end
 
     quote do
-      defmodule unquote(name) do
+      name = case unquote(name) do
+        {:name, name} -> name
+        name -> name
+      end
+      defmodule name do
         defstruct unquote(attributes)
 
         use Amnesia.Hooks, write: 1, write!: 1, read: 2, read!: 2

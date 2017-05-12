@@ -7,11 +7,55 @@
 #  0. You just DO WHAT THE FUCK YOU WANT TO.
 
 defmodule Amnesia.Helper do
-  defmodule Producer do
-    defmacro macros_for_module(bindings) do
-      Enum.map(bindings, fn {attr, val} ->
-        quote do: defmacro unquote(attr)(), do: unquote(val)
-      end)
+  defmodule Binder do
+    defmacro expanded_name!(value, mod \\ nil) do
+        IO.inspect Macro.expand(value, __CALLER__), label: "EN"
+      quote do
+        IO.inspect Macro.expand(unquote(value), unquote(mod)), label: "EN"
+        var!(expanded_name) = Macro.expand(unquote(value), unquote(mod))
+      end
+    end
+
+    defmacro __using__(bindings) do
+      [
+        quote do
+          bindings = unquote(bindings)
+          defmacro __using__(_opts \\ []) do
+            module = __MODULE__
+            quote do
+              require unquote(module), as: Bindings
+              import unquote(module)
+              Bindings.bindings!
+              Bindings.attributes!
+            end
+          end
+          defmacro bindings(), do: unquote(bindings)
+          defmacro bindings!() do
+            Enum.map(unquote(bindings), fn {attr, val} ->
+              {:=, [], [{attr, [], nil}, val]}
+            end)
+          end
+          defmacro attributes!() do
+            Enum.map(unquote(bindings), fn {attr, val} ->
+              quote do
+                Module.register_attribute(__MODULE__, unquote(attr), accumulate: false)
+                Module.put_attribute(__MODULE__, unquote(attr), unquote(val))
+              end
+            end)
+          end
+          defmacro sigil_b(key, _modifiers) do
+            bindings = unquote(bindings)
+            quote do: unquote(bindings)[String.to_atom(unquote(key))]
+          end
+        end |
+
+        Enum.map(bindings, fn {attr, val} ->
+          quote do
+            defmacro unquote(attr)(), do: unquote(val)
+            def unquote(:"table_#{attr}")(), do: unquote(val)
+          end
+        end)
+      ]
     end
   end
 

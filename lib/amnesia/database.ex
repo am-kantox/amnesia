@@ -20,35 +20,23 @@ defmodule Amnesia.Database do
 
   @doc false
   def defdatabase!(name, do: block) do
-    defdatabase!(name, bind_quoted: [], do: block)
+    defdatabase!(name, bindings: [], do: block)
   end
-  def defdatabase!(name, bind_quoted: bind_quoted, do: block) do
-    binding_module_quoted =  with {:__aliases__, line, names} <- name do
-                               {:__aliases__, line, names ++ [:Bindings]}
-                             end
+  def defdatabase!(name, bindings: bindings, do: block) do
+    binding_module = with {:__aliases__, line, names} <- name do
+                       {:__aliases__, line, names ++ [:Bindings]}
+                     end
     quote do
-      binding_module = unquote(binding_module_quoted)
-      IO.inspect(binding_module, label: "★1")
 
-      # unless [] == unquote(bind_quoted) do
-        defmodule binding_module do
-          require Amnesia.Helper.Producer, as: P
-          P.macros_for_module(unquote(bind_quoted))
-        end
-      # end
+      defmodule unquote(binding_module) do
+        use Amnesia.Helper.Binder, unquote(bindings)
+      end
 
       defmodule unquote(name) do
         use   Amnesia.Database
         alias Amnesia.Metadata
+        use unquote(binding_module)
 
-        IO.inspect(unquote(binding_module_quoted), label: "★2")
-        # Code.eval_string("require #{binding_module}\n alias #{binding_module}")
-        require unquote(binding_module_quoted), as: Bindings
-        # IO.inspect "#{Bindings.user_table()}", label: "★☆★"
-
-        bindings = unquote(bind_quoted)
-        IO.inspect(Bindings.__info__(:macros), label: "★2")
-        # alias #{Module.concat(unquote(name), "Bindings")}, as: Bindings
         unquote(block)
 
         @doc """
@@ -198,7 +186,29 @@ defmodule Amnesia.Database do
   @spec deftable(atom, [atom | { atom, any }], Keyword.t) :: none
   @spec deftable(atom, [atom | { atom, any }], Keyword.t, Keyword.t) :: none
   defmacro deftable(name, attributes \\ nil, opts \\ [], do_block \\ []) do
+    # IO.inspect __CALLER__.module, label: "★★★"
+            IO.inspect name, label: "★★★"
+
     expanded_name = case name do
+      {:aaa, b, var} ->
+        # IO.inspect Module.get_attribute(__CALLER__.module, var), label: "★★★"
+        # IO.inspect (Macro.var(name, nil)), label: "★★★"
+        atom = __CALLER__.module
+               |> Module.get_attribute(var)
+               |> Module.concat(Bindings)
+               |> apply(String.to_atom("table_#{name}"), [])
+               |> Atom.to_string
+               |> String.trim_leading("Elixir.")
+               |> String.to_atom
+        {:__aliases__, [counter: 0, line: __CALLER__.line], [atom]}
+      {:sigil_b, meta, [{:<<>>, _, [item]}, []]} ->
+        atom = __CALLER__.module
+               |> Module.concat(Bindings)
+               |> apply(String.to_atom("table_#{item}"), [])
+               |> Atom.to_string
+               |> String.trim_leading("Elixir.")
+               |> String.to_atom
+        {:__aliases__, Keyword.merge([counter: 0], meta), [atom]}
       {t, meta, _} when is_tuple(t) ->
         atom = name
                |> Macro.expand(__CALLER__)
@@ -206,11 +216,20 @@ defmodule Amnesia.Database do
                |> String.trim_leading("Elixir.")
                |> String.to_atom
         {:__aliases__, Keyword.merge([counter: 0], meta), [atom]}
-      _ -> name
+      _ ->
+        name
     end
 
+        IO.puts("1: #{inspect expanded_name}")
+        if __CALLER__.module == DiscOnly.Database do
+          require Amnesia.Helper.Binder
+          Amnesia.Helper.Binder.expanded_name! expanded_name, __CALLER__
+        end
+        IO.puts("2: #{inspect expanded_name}")
+
     if attributes do
-      [ Amnesia.Table.Definition.define(__CALLER__.module, expanded_name, attributes, Keyword.merge(opts, do_block)),
+      [
+        Amnesia.Table.Definition.define(__CALLER__.module, expanded_name, attributes, Keyword.merge(opts, do_block)),
 
         # add the defined table to the list
         quote do: @tables unquote(expanded_name) ]
@@ -220,4 +239,25 @@ defmodule Amnesia.Database do
       end
     end
   end
+
+#   defmacro deftables(name_or_list, attributes \\ nil, opts \\ [], do_block \\ [])
+
+  defmacro deftables(list) when is_list(list) do
+    Enum.each(list, fn
+      opts when is_list(opts) ->
+        name = Keyword.get(opts, :name)
+        attributes = Keyword.get(opts, :attributes)
+        opts = Keyword.get(opts, :opts, [])
+        do_block = Keyword.get(opts, :do_block, [])
+        quote do: deftable unquote(name), unquote(attributes), unquote(opts), unquote(do_block)
+      opts when is_atom(opts) -> # atom, defaults
+        quote do: deftable unquote(opts)
+      end)
+  end
+
+  defmacro deftables(name, attributes, opts, do_block) do
+    IO.inspect [name: name, attributes: attributes, opts: opts, do_block: do_block], "★★★"
+    deftables([[name: name, attributes: attributes, opts: opts, do_block: do_block]])
+  end
+
 end

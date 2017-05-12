@@ -302,12 +302,12 @@ defmodule Amnesia do
         end
       end
 
-  """
-  defmacro defdatabase(name, do: block) do
-    Amnesia.Database.defdatabase!(name, do: block)
-  end
+      defdatabase Zoo, bindings: [elephant: Elephant] do
+        deftable Bindings.elephant, [:id, :trunk_length], do: nil
+      end
 
-  defmacro defdatabase(name, bind_quoted, do: block) do
-    Amnesia.Database.defdatabase!(name, bind_quoted: bind_quoted, do: block)
+  """
+  defmacro defdatabase(name, opts \\ [bindings: []], do: block) do
+    Amnesia.Database.defdatabase!(name, bindings: opts[:bindings], do: block)
   end
 end
